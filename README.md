@@ -1,71 +1,105 @@
-[README_FINAL_BUILD.txt](https://github.com/user-attachments/files/33830410/README_FINAL_BUILD.txt)
-DOODLES FINAL BUILD
-===================
+# Doodles - Real-time Multiplayer Drawing & Guessing Game
 
-Core:
-- Java 21 / Swing
-- TCP sockets, server authoritative
-- MySQL/JDBC
-- Server port 5000
+A Java Swing game where players take turns drawing a secret word while the others guess it in
+the chat. Built for the **Advanced Programming Practice** course.
 
-Room system:
-- Create public room
-- Create private room with 5-character code
-- Join public room from room list
-- Join private room by code
-- Lobby with host and player list
-- Host-only Start Game
-- No joining once a game starts
-- Host transfer if host disconnects
+- **Language / UI:** Java 21, Swing
+- **Networking:** TCP sockets, authoritative server (clients are never trusted for scores, roles or power-ups)
+- **Database:** MySQL via JDBC (players, game sessions, drawings, chat)
+- **Players:** 2 to 8 per room
 
-Game:
-- 2-8 players per room
-- The host chooses the number of ROUNDS (1-10) and the DRAWING TIME (30-180s) in the lobby
-- A round = every player draws once (so 4 players x 3 rounds = 12 drawings)
-- The drawer is offered THREE words (from three different categories) and has 15s to pick;
-  if they are too slow, one is picked for them (keys 1/2/3 also work)
-- 700+ words in 17 categories (server/WordBank.java), recently used words are not repeated
-- Progressive hints at 50% / 75% / 92% of the drawing time
-- Server-side guess validation, speed-based scoring, drawer bonus
-- When a game ends everybody returns to the lobby; the scoreboard resets to zero when the next
-  game starts (a new game session is also created in the database)
-- Players who already guessed chat privately with the drawer (no spoilers)
+## Features
 
-Chat extras:
-- 32 vector emoji (type :) or <3 or pick from the smiley button) and 14 stickers
-- Stickers pop up over the canvas for everybody and land in the chat
-- All emoji/stickers are drawn in code (ui/EmoteArt.java), no image files needed
+- **Rooms:** quick play, public rooms, private rooms with a 5-character code, lobby with host controls, host transfer if the host leaves
+- **Turns:** the drawer changes after every turn; every player draws once per round; host picks rounds (1-10) and drawing time (30-180 s)
+- **Words:** 700+ words in 17 categories; the drawer picks from 3 choices; progressive hints during the round
+- **Scoring:** speed-based points, drawer bonus, a scoreboard for each round plus an overall leaderboard next to the chat, podium at the end
+- **Chat:** guess/chat box with 32 emoji, 14 stickers and custom messages
+- **Power-ups (unique feature):** spend points to attack others or help yourself
+  - Drawer: Blur, Flip, Spotlight
+  - Guesser: Freeze, Hint, Double, Shield
+- **Drawing tools:** 9 brushes, eraser, fill, line, rectangle, ellipse, undo, clear, colour picker, save drawing as PNG
+- **UI:** playful, colourful "candy" theme, animations, confetti, synthesized sound effects
 
-Power-ups (one per player per round, server validated):
-- Drawer (target one active guesser): Blur 300, Flip 300, Spotlight 350
-- Guesser: Freeze 300 (target), Hint 200, Double 250, Shield 150
-- Shield blocks the next targeted power-up (the attacker still pays)
-- Defined once in common/PowerUp.java (cost, duration, role)
+## Project structure
 
-Brushes: Pen, Marker, Crayon, Spray, Calligraphy, Neon, Rainbow, Dashed, Dotted
-Tools: Eraser, Fill, Line, Rectangle, Ellipse, Undo, Clear, 20 colours + picker
-Shortcuts (drawer): 1-9 brush, B/E/F/L/R/O tools, [ ] size, Ctrl+Z undo
+```
+src/
+  client/    game screen, drawing panel, tool dock, game window
+  server/    GameServer (rooms, rounds, scoring, power-ups), WordBank
+  common/    shared classes: Config, Player, Message, PowerUp, Emotes, DrawingCommand
+  database/  JDBC access: connection, player / game / drawing / chat DAOs
+  ui/        welcome screen, lobby, dialogs, leaderboard, power shop, theme, icons
+database/    doodles_database.sql  (schema)
+lib/         mysql-connector-j-26.10.0.jar  (JDBC driver)
+screenshots/ project output
+```
 
-UI: light-blue / light-pink "candy" theme (ui/Theme), vector icons (ui/Icons), animated welcome
-screen with live avatar + random nickname dice, word-choice cards, round recap card, confetti,
-podium results, synthesized sound effects (ui/Sfx, toggle in Settings), "Save drawing" as PNG.
+## Requirements
 
-Important:
-1. Run the SQL schema in database/doodles_database.sql.
-2. Verify database credentials in src/database/DataBaseConnection.java.
-3. Run server.GameServer first.
-4. Run ui.WelcomeScreen on each client.
-5. Use CREATE PUBLIC / CREATE PRIVATE / JOIN ROOM / QUICK PLAY.
+- JDK 21 or newer
+- MySQL Server 8+ (running on `localhost:3306`)
+- The MySQL driver jar is already in `lib/`
 
-Network additions (client -> server): SET_SETTINGS rounds seconds, CHOOSE_WORD index, STICKER id
-(server -> client): ROOM_SETTINGS, WORD_CHOICES, CHOOSING, CHOOSE_CANCEL, STICKER, CHAT_PRIVATE
-Drawing network format: DRAW x y r g b size brushId | FILL x y r g b | UNDO | UP | CANVAS_CLEAR.
+## Setup and execution
 
-Rooms & dialogs (v4):
-- Creating or joining a room no longer pops up a "no public rooms" box: the server only sends the
-  public room list to players who are still browsing, and the client only shows it when asked.
-- "Join a room > Public room" opens a live room browser (auto-refreshing, with a Create button).
-- Wrong room code / full room / duplicate nickname: a friendly message, then back to the menu.
-- Settings has a "Leave room" button; the game window stays hidden until you are really in a room.
-- Every pop-up is now frameless and drawn by the game (ui/Dialogs.java), so nothing depends on the
-  Windows theme or accent colour any more. Includes a themed colour picker (ui/ColorPickerPanel.java).
+### 1. Create the database
+
+```bash
+mysql -u root -p < database/doodles_database.sql
+```
+
+The code expects MySQL user `root` with password `Doodles@123`. To use a different password, either
+edit `src/database/DataBaseConnection.java` or pass `-Ddoodles.db.password=YOURPASSWORD` to the server.
+
+### 2. Start the server (first)
+
+```bash
+./run-server.sh          # macOS / Linux
+run-server.bat           # Windows
+```
+
+Or in IntelliJ: run `server.GameServer`. The console prints `Database: READY` when MySQL is connected.
+If the database is not available the game still works, but nothing is saved.
+
+### 3. Start the game (one per player)
+
+```bash
+./run-client.sh          # macOS / Linux
+run-client.bat           # Windows
+```
+
+Or in IntelliJ: run `ui.WelcomeScreen`. Start it once per player, then use **Quick Play**,
+**Create Public**, **Create Private** or **Join a Room**. The host starts the game once 2+ players are in the lobby.
+
+### Playing on two computers
+
+Start the clients with `-Ddoodles.host=<IP of the server computer>`. The default port is `5051`;
+change it with `-Ddoodles.port=NNNN` on the server and every client.
+
+## Troubleshooting
+
+| Message | Fix |
+|---|---|
+| Could not connect to the Doodles server | Start `GameServer` first |
+| No answer from the server | Another program uses the port; change it with `-Ddoodles.port` |
+| MySQL driver is not on the classpath | Make sure the jar is in `lib/` (IntelliJ: right-click `lib` > Add as Library) |
+| wrong MySQL user or password | Fix the password as described in step 1 |
+| database / table is missing | Run `database/doodles_database.sql` |
+
+## Screenshots
+
+| Screen | Image |
+|---|---|
+| Welcome screen | ![Welcome](screenshots/01-welcome.png) |
+| Lobby with room code | ![Lobby](screenshots/02-lobby.png) |
+| Drawing round | ![Drawing](screenshots/03-drawing.png) |
+| Guessing, chat and emoji | ![Chat](screenshots/04-chat.png) |
+| Power-ups | ![Power-ups](screenshots/05-powerups.png) |
+| Scoreboard and results | ![Results](screenshots/06-results.png) |
+| Server console (database ready) | ![Server](screenshots/07-server-console.png) |
+| MySQL tables with saved data | ![Database](screenshots/08-database.png) |
+
+## Team
+
+Name: Krsna - GitHub: [purohit1008](https://github.com/purohit1008)
